@@ -8,6 +8,7 @@ def total_energy(y_history, masses, N):
 
     
     for state in y_history:
+        #Initial Condition
         K = 0.0
         U = 0.0
 
