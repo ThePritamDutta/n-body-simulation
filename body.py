@@ -1,6 +1,23 @@
 import numpy as np
 
 
-class Body:
-    # body class to represent celestial bodies to be imported in all program segements
-    pass
+def bodies(N):
+    bodies = []
+    masses = []
+
+    for i in range(N):
+        # Random Position (Scale 1e9)
+        px = np.random.uniform(-1e9, 1e9)
+        py = np.random.uniform(-1e9, 1e9)
+        pz = np.random.uniform(-1e9, 1e9)
+        # Giving Random velocities (Scale 500)
+        vx = np.random.uniform(-500, 500)
+        vy = np.random.uniform(-500, 500)
+        vz = np.random.uniform(-500, 500)
+
+        bodies.extend([px, py, pz, vx, vy, vz])
+
+        # Mass range 1e20 to 1e25
+        masses.append(np.random.uniform(1e20, 1e25))
+
+    return (np.array(bodies), np.array(masses))
