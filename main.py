@@ -7,7 +7,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import csv
 
 G = 6.67430e-11  # Gravitational Constant
-N = 10  # No. of objects
+N = 100  # No. of objects
 
 # generate bodies with random positions and velocities
 bodies_state, masses = body.bodies(N)
