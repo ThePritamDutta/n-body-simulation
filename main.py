@@ -7,7 +7,8 @@ from mpl_toolkits.mplot3d import Axes3D
 import csv
 
 G = 6.67430e-11  # Gravitational Constant
-N = 100  # No. of objects
+N = 100 # No. of objects
+
 
 # generate bodies with random positions and velocities
 bodies_state, masses = body.bodies(N)
@@ -52,8 +53,8 @@ def deriv(t, bodies_state):
 def main():
     t0 = 0.0
     tf = 8640000.0  # time duration for simulation in seconds
-    h = 1000.0  # step size: 1000 seconds (simulation takes large jumps)
-    toler = 1e-3
+    h = 1000  # step size: 1000 seconds (simulation takes large jumps)
+    toler = 1e3
 
     y0 = np.array(bodies_state, dtype=float)
 
