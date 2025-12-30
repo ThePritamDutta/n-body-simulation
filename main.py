@@ -74,7 +74,7 @@ def main():
 
     # to calculate energy using Energy.py
     try:
-        Total = Energy.total_energy(y, masses, N)
+        Total = Energy.total_energy_drift(y, masses, N)
         plt.figure()
         plt.grid()
         plt.plot(t, Total)
@@ -85,6 +85,18 @@ def main():
         print(f"Energy plot saved as energy_{method}.png")  # confirmation message
     except Exception as e:
         print(f"Could not plot energy: {e}")
+    scale = 1e9
+    E0 = Total[0]
+    Ef = Total[-1]
+    t0 = t[0]
+    tf = t[-1]
+
+    
+
+    max_energy_deviation = np.max(np.abs(Total - E0))
+
+    max_energy_drift_rate = max_energy_deviation / (tf - t0)
+    print("Max energy drift rate =", max_energy_drift_rate, "J/s")
 
     # plotting animation
     scale = 1e9
