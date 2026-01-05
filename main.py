@@ -1,218 +1,181 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
-matplotlib.rcParams['animation.ffmpeg_path'] = r"C:\ProgramData\chocolatey\bin\ffmpeg.exe"
 import integrators
 import body
 import Energy
-from mpl_toolkits.mplot3d import Axes3D
-import csv
 import time
+import csv  # Added for data export
 import matplotlib.animation as animation
+from mpl_toolkits.mplot3d import Axes3D
 
-G = 6.67430e-11  # Gravitational Constant
-N = 25 # No. of objects
+# --------------------------------------------------
+# Physics Constants
+# --------------------------------------------------
+G = 6.67430e-11
+N = 100                
+EPS = 1e4             
 
+# --------------------------------------------------
+# Initial Conditions
+# --------------------------------------------------
+bodies_state, masses = body.bodies(N, seed=42)
 
-# generate bodies with random positions and velocities
-bodies_state, masses = body.bodies(N)
+def deriv(t, y):
+    """
+    Standard state-space derivative. 
+    y is structured as [x1, y1, z1, vx1, vy1, vz1, ... xN, yN, zN, vN, vN, vN]
+    """
+    dydt = np.zeros_like(y)
 
+    # dx/dt = v
+    dydt[0::6] = y[3::6]
+    dydt[1::6] = y[4::6]
+    dydt[2::6] = y[5::6]
 
-def deriv(t, bodies_state):
-    # to calculate derivatives for RK4 and RK45
-    dydt = np.zeros_like(bodies_state)
-
-    for i in range(N):
-        idx = 6 * i
-        x, y, z = bodies_state[idx], bodies_state[idx + 1], bodies_state[idx + 2]
-
-        # velocity --> dx/dt
-        dydt[idx] = bodies_state[idx + 3]
-        dydt[idx + 1] = bodies_state[idx + 4]
-        dydt[idx + 2] = bodies_state[idx + 5]
-
-        ax, ay, az = 0, 0, 0
-        for j in range(N):
-            if i == j:
-                continue
-            jdx = 6 * j
-            dx = bodies_state[jdx] - x
-            dy = bodies_state[jdx + 1] - y
-            dz = bodies_state[jdx + 2] - z
-
-            r = np.sqrt(dx * dx + dy * dy + dz * dz) + 1e4 # softening
-
-            # Acceleration = G * m_j / r^3 * vec_r
-            ax += G * masses[j] * dx / r**3
-            ay += G * masses[j] * dy / r**3
-            az += G * masses[j] * dz / r**3
-
-        dydt[idx + 3] = ax
-        dydt[idx + 4] = ay
-        dydt[idx + 5] = az
+    # dv/dt = a 
+    acc = integrators.get_acc(y, masses, G=G, epsilon=EPS)
+    dydt[3::6] = acc[0::3]
+    dydt[4::6] = acc[1::3]
+    dydt[5::6] = acc[2::3]
 
     return dydt
 
-
 def main():
+    # Setup timing (100 days)
     t0 = 0.0
-    tf = 3600*24*100  # time duration for simulation in seconds
-    h = 1000  # step size: 6000 seconds (simulation takes large jumps)
-    toler = 1e3
-    
-    
-    y0 = bodies_state.flatten()
-    print(bodies_state)
-    print(masses)
-   
+    tf = 5e6
+    h = 300.0               
+    toler = 1e-6               
 
-    # selection of integrator
-    method = "verlet"  # options: "verlet", "rk4", "rk45"
-    start_time = time.perf_counter()
-    print(f"Running simulation using {method.upper()}...")
+    y0 = bodies_state.copy()
+
+    # --- SAVE INITIAL CONDITIONS TO CSV ---
+    print("Saving initial conditions to initial_conditions.csv...")
+    with open('initial_conditions.csv', mode='w', newline='') as file:
+        writer = csv.writer(file)
+        # Header row
+        writer.writerow(['Body_ID', 'Mass', 'x', 'y', 'z', 'vx', 'vy', 'vz'])
+        
+        for i in range(N):
+            idx = i * 6
+            row = [
+                i + 1, 
+                masses[i],
+                y0[idx], y0[idx+1], y0[idx+2],     # Positions
+                y0[idx+3], y0[idx+4], y0[idx+5]    # Velocities
+            ]
+            writer.writerow(row)
+    print("CSV saved successfully.")
+
+    # Simulation execution
+    method = "verlet" 
+    print(f"\nStarting {method.upper()} solver...")
+
+    start_timer = time.perf_counter()
 
     if method == "rk45":
         t, y = integrators.rk45(deriv, t0, y0, tf, h, toler)
     elif method == "rk4":
         t, y = integrators.rk4(deriv, t0, y0, tf, h)
     elif method == "verlet":
-        # verlet integrator from integrators.py
-        t, y = integrators.verlet_step(t0, y0, masses, tf, h, G=G)
+        t, y = integrators.verlet_step(t0, y0, masses, tf, h, G=G, epsilon=EPS)
+    else:
+        raise ValueError("Check the method string!")
 
-    print("Simulation complete. Calculating energy...")
-    end_time = time.perf_counter()
+    runtime = time.perf_counter() - start_timer
+    print(f"Done! Runtime: {runtime:.3f} seconds")
 
-    runtime = end_time - start_time
-    print(f"Runtime = {runtime:.3f} seconds")
-    # to calculate energy using Energy.py
-    try:
-        Total = Energy.total_energy_drift(y, masses, N)
-        plt.figure()
-        plt.grid()
-        plt.plot(t, Total)
-        plt.title(f"Total Energy Drift over Time ({method})")
-        plt.xlabel("Time")
-        plt.ylabel("Energy Drift")
-        plt.savefig(f"energydrift_{method}.png")  # saving plot for total energy
-        print(f"Energy plot saved as energy drift_{method}.png")  # confirmation message
-    except Exception as e:
-        print(f"Could not plot energy: {e}")
-
-    # plotting animation
-    scale = 1e9
-    E0 = Total[0]
-    Ef = Total[-1]
-    t0 = t[0]
-    tf = t[-1]
-
+    # --------------------------------------------------
+    # Diagnostics (Energy & Momentum)
+    # --------------------------------------------------
+    print("\nProcessing Energy and Angular Momentum...")
     
+    Total = Energy.total_energy_drift(y, masses, N, eps=EPS)
 
-    max_energy_deviation = np.max(np.abs(Total - E0))
-
-    max_energy_drift_rate = max_energy_deviation / (tf - t0)
-    
-    print("Max energy drift rate =", max_energy_drift_rate, "J/s")
-
-    Angular_Momentum_Vector,Angular_drift = Energy.Angular_momentum(y,masses,N)
-    Angular_drift.shape == (len(t),)
-    max_angular_drift = np.max(np.abs(Angular_drift))
-
-    max_angular_drift_rate = max_angular_drift / (tf - t0)
-    
-    print(f"The maximum angular drift rate of the system using the method {method} is",max_angular_drift_rate)
-    
-    
     plt.figure()
-    plt.grid()
-    plt.plot(t,Angular_Momentum_Vector)
-    plt.title(f"Total Angular Momentum over time t using ({method})")
-    plt.xlabel("Time(t)")
-    plt.ylabel("Angular_Momentum")
-    plt.savefig(f"Angular_Momentum({method}).png")
-    print(f"Energy plot saved as angular momentum {method}.png")
-    
-    
-    
+    plt.plot(t, Total)
+    plt.xlabel("Time (s)")
+    plt.ylabel("Relative Energy Drift")
+    plt.title(f"Energy Stability ({method})")
+    plt.grid(True)
+    plt.savefig(f"energydrift_{method}.png")
+    plt.close()
+
+    # Angular Momentum checks
+    Angular_Momentum_Vector, Angular_drift = Energy.Angular_momentum(y, masses, N)
+
     plt.figure()
-    plt.grid()
-    plt.plot(t,Angular_drift)
-    plt.title(f"Total Angular Momentum Drift over time t using ({method})")
-    plt.xlabel("Time(t)")
-    plt.ylabel("Angular Momentum drift")
-    plt.savefig(f"Angular_Momentum_Drift({method}).png")
-    print(f"Energy plot saved as angular momentum drift_{method}.png")
+    plt.plot(t, Angular_Momentum_Vector)
+    plt.xlabel("Time (s)")
+    plt.ylabel("Angular Momentum Magnitude")
+    plt.title(f"Angular Momentum ({method})")
+    plt.grid(True)
+    plt.savefig(f"Angular_Momentum_{method}.png")
+    plt.close()
+
+    plt.figure()
+    plt.plot(t, Angular_drift)
+    plt.xlabel("Time (s)")
+    plt.ylabel("Relative Angular Momentum Drift")
+    plt.grid(True)
+    plt.savefig(f"Angular_Momentum_Drift_{method}.png")
+    plt.close()
+
+    # --------------------------------------------------
+    # Visualization
+    # --------------------------------------------------
+    print("Rendering animation...")
+    scale = 1e9  
     
-
-    print("Generating animation... please wait.")
-    
-
-    fig = plt.figure(figsize=(10, 10))
-
-    # 1. Setup the Figure
+    fig = plt.figure(figsize=(8, 8))
     ax = fig.add_subplot(111, projection="3d")
 
-    # ... inside animation section ...
+    y_plot = y.reshape((len(t), N, 6))
+    
+    # Use initial positions to set camera scale
+    initial_positions = y_plot[0, :, :3]
 
-    # 1. Get all positions (ignore velocities)
-    # Shape: (TimeSteps, N, 3)
-    all_positions = y.reshape((len(t), N, 6))[:, :, :3]
+# Convert to Gm for visualization
+    initial_positions_scaled = initial_positions / scale
 
-    # to calculate the max range in which 90% of bodies lie
-    max_range = np.percentile(np.abs(all_positions), 90) / scale
+# Set limits based on initial configuration
+    limit = np.max(np.linalg.norm(initial_positions_scaled, axis=1)) * 1.5
 
-    # setting the camera to focus on main cluster of bodies
-    limit = 4
-
-    print(f"Camera Limit set to: {limit} billion meters")
 
     ax.set_xlim(-limit, limit)
     ax.set_ylim(-limit, limit)
     ax.set_zlim(-limit, limit)
 
-    ax.set_xlabel("X (1e9 m)")
-    ax.set_ylabel("Y (1e9 m)")
-    ax.set_zlabel("Z (1e9 m)")
-    ax.set_title(f"Solar System Simulation using ({method})")
+    ax.set_xlabel("X (Gm)")
+    ax.set_ylabel("Y (Gm)")
+    ax.set_zlabel("Z (Gm)")
 
-    lines = [ax.plot([], [], [], "-", alpha=0.5)[0] for _ in range(N)]
+    lines = [ax.plot([], [], [], "-", alpha=0.4)[0] for _ in range(N)]
     dots = [ax.plot([], [], [], "o")[0] for _ in range(N)]
 
-    skip = 25
-    num_frames = len(t) // skip
+    skip = max(len(t) // 400, 1)
 
     def update(frame):
-        current_index = frame * skip
-
-        state = y[current_index]
-        reshaped = state.reshape((N, 6))
-
+        idx = frame * skip
         for i in range(N):
+            hist = y_plot[:idx:10, i, :3] / scale
+            if hist.size > 0:
+                lines[i].set_data(hist[:, 0], hist[:, 1])
+                lines[i].set_3d_properties(hist[:, 2])
 
-            history = y[:current_index:10]
-            hist_reshaped = history.reshape((-1, N, 6))
-
-            lines[i].set_data(
-                hist_reshaped[:, i, 0] / scale, hist_reshaped[:, i, 1] / scale
-            )
-            lines[i].set_3d_properties(hist_reshaped[:, i, 2] / scale)
-
-            px = reshaped[i, 0] / scale
-            py = reshaped[i, 1] / scale
-            pz = reshaped[i, 2] / scale
-
-            dots[i].set_data([px], [py])
-            dots[i].set_3d_properties([pz])
+            pos = y_plot[idx, i, :3] / scale
+            dots[i].set_data(pos[0:1], pos[1:2])
+            dots[i].set_3d_properties(pos[2:3])
 
         return lines + dots
 
     ani = animation.FuncAnimation(
-        fig, update, frames=num_frames, interval=30, blit=False
+        fig, update, frames=len(t) // skip, interval=30, blit=False
     )
 
-    ani.save("n_body_simulation.mp4", writer="ffmpeg", fps=10)
-    print(f"Animation saved as nbody_simulation {method}.mp4")
-
+    ani.save(f"n_body_simulation_{method}.mp4", writer="ffmpeg", fps=15)
+    print("MP4 saved.")
 
 if __name__ == "__main__":
     main()
-
