@@ -1,65 +1,94 @@
 import numpy as np
+from numba import njit
 
-# Gravitational constant
-G = 6.67430e-11
+@njit
+def bodies(N, G=6.67430e-11):
+    positions = np.zeros((N, 3))
+    velocities = np.zeros((N, 3))
+    masses = np.zeros(N)
 
-def bodies(N, seed=None):
-    """
-    Generate virialized initial conditions for an N-body gravitational system.
-    """
+    # -----------------------------------------
+    # 1. Random positions, velocities, masses
+    # -----------------------------------------
+    for i in range(N):
+        positions[i, 0] = np.random.uniform(-1.6e9, 1.6e9)
+        positions[i, 1] = np.random.uniform(-1.6e9, 1.6e9)
+        positions[i, 2] = np.random.uniform(-1.6e9, 1.6e9)
 
-    if seed is not None:
-        np.random.seed(seed)
+        velocities[i, 0] = np.random.uniform(-500, 500)
+        velocities[i, 1] = np.random.uniform(-500, 500)
+        velocities[i, 2] = np.random.uniform(-500, 500)
 
-    # ---------------------------------------------------------
-    # 1. Mass distribution
-    # ---------------------------------------------------------
-    masses = np.random.uniform(1e20, 1e25, size=N)
+        masses[i] = np.random.uniform(1e20, 1e25)
 
-    # ---------------------------------------------------------
-    # 2. Position distribution
-    # ---------------------------------------------------------
-    pos_scale = 3e8  # meters
-    positions = np.random.uniform(-pos_scale, pos_scale, size=(N, 3))
-
-    # ---------------------------------------------------------
-    # 3. Initial random velocities (unscaled)
-    # ---------------------------------------------------------
-    vel_scale = 1.0  # temporary scale, will be rescaled
-    velocities = np.random.uniform(-vel_scale, vel_scale, size=(N, 3))
-
-    # ---------------------------------------------------------
-    # 4. Compute potential energy U
-    # ---------------------------------------------------------
+    # -----------------------------------------
+    # 2. Potential energy U (double loop)
+    # -----------------------------------------
     U = 0.0
     for i in range(N):
         for j in range(i + 1, N):
-            r = np.linalg.norm(positions[i] - positions[j])
+            dx = positions[i, 0] - positions[j, 0]
+            dy = positions[i, 1] - positions[j, 1]
+            dz = positions[i, 2] - positions[j, 2]
+
+            r = np.sqrt(dx*dx + dy*dy + dz*dz)
             U -= G * masses[i] * masses[j] / r
 
-    # ---------------------------------------------------------
-    # 5. Compute kinetic energy K
-    # ---------------------------------------------------------
-    K = 0.5 * np.sum(masses * np.sum(velocities**2, axis=1))
+    # -----------------------------------------
+    # 3. Kinetic energy K (loop)
+    # -----------------------------------------
+    K = 0.0
+    for i in range(N):
+        v2 = (
+            velocities[i, 0] * velocities[i, 0] +
+            velocities[i, 1] * velocities[i, 1] +
+            velocities[i, 2] * velocities[i, 2]
+        )
+        K += 0.5 * masses[i] * v2
 
-    # ---------------------------------------------------------
-    # 6. Virialize velocities: enforce 2K + U = 0
-    # ---------------------------------------------------------
-    scale = np.sqrt(abs(U) / (2 * K))
-    velocities *= scale
+    # -----------------------------------------
+    # 4. Virialize velocities (2K + U = 0)
+    # -----------------------------------------
+    scale = np.sqrt(-U / (2.0 * K))
+    for i in range(N):
+        velocities[i, 0] *= scale
+        velocities[i, 1] *= scale
+        velocities[i, 2] *= scale
 
-    # ---------------------------------------------------------
-    # 7. Remove center-of-mass motion
-    # ---------------------------------------------------------
-    total_mass = np.sum(masses)
-    v_cm = np.sum(masses[:, None] * velocities, axis=0) / total_mass
-    velocities -= v_cm
+    # -----------------------------------------
+    # 5. Remove center-of-mass motion
+    # -----------------------------------------
+    total_mass = 0.0
+    vcm_x = 0.0
+    vcm_y = 0.0
+    vcm_z = 0.0
 
-    # ---------------------------------------------------------
-    # 8. Assemble state vector
-    # ---------------------------------------------------------
+    for i in range(N):
+        total_mass += masses[i]
+        vcm_x += masses[i] * velocities[i, 0]
+        vcm_y += masses[i] * velocities[i, 1]
+        vcm_z += masses[i] * velocities[i, 2]
+
+    vcm_x /= total_mass
+    vcm_y /= total_mass
+    vcm_z /= total_mass
+
+    for i in range(N):
+        velocities[i, 0] -= vcm_x
+        velocities[i, 1] -= vcm_y
+        velocities[i, 2] -= vcm_z
+
+    # -----------------------------------------
+    # 6. Assemble state vector
+    # -----------------------------------------
     state = np.zeros((N, 6))
-    state[:, :3] = positions
-    state[:, 3:6] = velocities
+    for i in range(N):
+        state[i, 0] = positions[i, 0]
+        state[i, 1] = positions[i, 1]
+        state[i, 2] = positions[i, 2]
+        state[i, 3] = velocities[i, 0]
+        state[i, 4] = velocities[i, 1]
+        state[i, 5] = velocities[i, 2]
 
-    return state.flatten(), masses
+    return state.ravel(), masses
+
