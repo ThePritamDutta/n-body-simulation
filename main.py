@@ -9,16 +9,16 @@ from mpl_toolkits.mplot3d import Axes3D
 import csv
 import time
 import matplotlib.animation as animation
-from numba import njit
+
 
 G = 6.67430e-11  # Gravitational Constant
 N = 100 # No. of objects
 
 
 # generate bodies with random positions and velocities
-bodies_state, masses = body.bodies(N)
+bodies_state, masses, radii = body.bodies(N)
 
-@njit
+
 def deriv(t, bodies_state):
     # to calculate derivatives for RK4 and RK45
     dydt = np.zeros_like(bodies_state)
