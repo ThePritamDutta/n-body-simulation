@@ -1,8 +1,6 @@
 import numpy as np
-from numba import njit
+import collision
 
-
-@njit
 def get_acc(state, masses, N, G=6.67430e-11, eps=1e4):
 
     acc = np.zeros((N, 3))
@@ -57,10 +55,16 @@ def verlet_step(t, y, masses, tf, dt, G=6.67430e-11):
         # 2. Drift (Position)
         y_matrix[:, :3] += velocities * dt
 
-        # 3. Update Acceleration (using new positions)
+        # 3. Collision
+        y_matrix, masses, radii = collison.collision(y_matrix, masses, radii)
+
+        # Update N after collision
+        N = len(masses)
+
+        # 5. Update Acceleration (using new positions)
         acc = get_acc(y, masses,N, G,1e4)
 
-        # 4. Half-Kick (Velocity)
+        # 6. Half-Kick (Velocity)
         velocities += 0.5 * acc.reshape((N, 3)) * dt
 
         t += dt
