@@ -42,7 +42,7 @@ def deriv(t, bodies_state):
     return dydt
 
 
-def main():
+def main(radii,masses):
     start_time1 = time.perf_counter()
     t0 = 0.0
     tf = 3600*24*50  # time duration for simulation in seconds
