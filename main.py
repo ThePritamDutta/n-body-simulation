@@ -66,7 +66,7 @@ def main():
         t, y = integrators.rk4(deriv, t0, y0, tf, h)
     elif method == "verlet":
         # verlet integrator from integrators.py
-        t, y = integrators.verlet_step(t0, y0, masses, tf, h, G=G)
+        t, y,masses,radii = integrators.verlet_step(t0, y0, masses, tf, h, radii)
 
     print("Simulation complete. Calculating energy...")
     end_time = time.perf_counter()
