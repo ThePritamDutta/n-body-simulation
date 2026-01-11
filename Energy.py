@@ -1,7 +1,7 @@
-from numba import njit
+
 import numpy as np
 
-@njit
+
 def total_energy(y_history, masses, N, eps=1e4):
     G = 6.67430e-11
     T = y_history.shape[0]
@@ -35,7 +35,7 @@ def total_energy(y_history, masses, N, eps=1e4):
     dE_rel = (energies - E0) / np.abs(E0)
 
     return dE_rel
-@njit
+
 def Angular_momentum(y, masses, N):
     states = y.reshape((-1, N, 6))
     T = states.shape[0]
