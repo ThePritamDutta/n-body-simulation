@@ -4,7 +4,7 @@ import collision
 G=6.67430e-11
 
 def get_acc(state, masses, N, G=6.67430e-11, eps=1e4):
-
+    N = len(masses)
     acc = np.zeros((N, 3))
     positions = state.reshape((N, 6))[:, :3]
 
@@ -74,7 +74,7 @@ def verlet_step(t, y, masses, tf, dt, radii):
         t_list.append(t)
         y_list.append(y.copy())
 
-    return np.array(t_list), np.array(y_list)
+    return np.array(t_list), np.array(y_list),np.array(masses),np.array(radii)
 
 
 def rk45(f, t0, y0, tf, dt, tol):
