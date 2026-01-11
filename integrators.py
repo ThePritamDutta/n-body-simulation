@@ -56,7 +56,7 @@ def verlet_step(t, y, masses, tf, dt, G=6.67430e-11):
         y_matrix[:, :3] += velocities * dt
 
         # 3. Collision
-        y_matrix, masses, radii = collison.collision(y_matrix, masses, radii)
+        y_matrix, masses, radii = collision.collision(y_matrix, masses, radii)
 
         # Update N after collision
         N = len(masses)
