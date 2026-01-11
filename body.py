@@ -1,11 +1,12 @@
 import numpy as np
-from numba import njit
 
-@njit
+
+
 def bodies(N, G=6.67430e-11):
     positions = np.zeros((N, 3))
     velocities = np.zeros((N, 3))
     masses = np.zeros(N)
+    radii = np.zeros(N)
 
     # -----------------------------------------
     # 1. Random positions, velocities, masses
@@ -20,6 +21,8 @@ def bodies(N, G=6.67430e-11):
         velocities[i, 2] = np.random.uniform(-500, 500)
 
         masses[i] = np.random.uniform(1e20, 1e25)
+
+        radii[i] = np.random.uniform(1e8,5e8)
 
     # -----------------------------------------
     # 2. Potential energy U (double loop)
@@ -90,5 +93,5 @@ def bodies(N, G=6.67430e-11):
         state[i, 4] = velocities[i, 1]
         state[i, 5] = velocities[i, 2]
 
-    return state.ravel(), masses
+    return state.ravel(), masses,radii
 
