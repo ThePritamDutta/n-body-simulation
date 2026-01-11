@@ -1,6 +1,8 @@
 import numpy as np
 import collision
 
+G=6.67430e-11
+
 def get_acc(state, masses, N, G=6.67430e-11, eps=1e4):
 
     acc = np.zeros((N, 3))
@@ -34,7 +36,8 @@ def get_acc(state, masses, N, G=6.67430e-11, eps=1e4):
     return acc.ravel()
 
 
-def verlet_step(t, y, masses, tf, dt, G=6.67430e-11):
+def verlet_step(t, y, masses, tf, dt, radii):
+    
     t_list = [t]
     y_list = [y.copy()]
     N = len(masses)
