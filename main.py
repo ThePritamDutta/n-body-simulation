@@ -12,12 +12,17 @@ import matplotlib.animation as animation
 
 
 G = 6.67430e-11  # Gravitational Constant
-N = 100 # No. of objects
+N = 10
+# No. of objects
 
 
 # generate bodies with random positions and velocities
-bodies_state, masses, radii = body.bodies(N)
 
+bodies_state = np.array([ 1.17349296e+09,  1.27523051e+09, -2.45399244e+08, 0,
+ 0,  0,  3.93771941e+08, -1.09976840e+09,
+ -3.24187064e+08,0,0,0])
+masses = np.array([9.57711392e+24, 2.32095806e+24])
+bodies_state, masses, radii = body.bodies(N)
 
 def deriv(t, bodies_state):
     # to calculate derivatives for RK4 and RK45
@@ -45,8 +50,8 @@ def deriv(t, bodies_state):
 def main(radii,masses):
     start_time1 = time.perf_counter()
     t0 = 0.0
-    tf = 3600*24*50  # time duration for simulation in seconds
-    h = 1000  # step size: 6000 seconds (simulation takes large jumps)
+    tf = 3600*24*100  # time duration for simulation in seconds
+    h = 100  # step size: 6000 seconds (simulation takes large jumps)
     toler = 1e-5
     
     
@@ -56,18 +61,19 @@ def main(radii,masses):
    
 
     # selection of integrator
-    method = "verlet"  # options: "verlet", "rk4", "rk45"
+    method = "rk45"  # options: "verlet", "rk4", "rk45"
     start_time = time.perf_counter()
     print(f"Running simulation using {method.upper()}...")
+    k=0
 
     if method == "rk45":
-        t, y = integrators.rk45(deriv, t0, y0, tf, h, toler)
+        t, y = integrators.rk45(deriv, t0, y0, tf, h, toler,masses,radii)
     elif method == "rk4":
-        t, y = integrators.rk4(deriv, t0, y0, tf, h)
+        t, y = integrators.rk4(deriv, t0, y0, tf, h,masses,radii)
     elif method == "verlet":
         # verlet integrator from integrators.py
-        t, y,masses,radii = integrators.verlet_step(t0, y0, masses, tf, h, radii)
-
+        t, y,k = integrators.verlet_step(t0, y0, masses, tf, h, radii)
+    print("Total No of collision",k)
     print("Simulation complete. Calculating energy...")
     end_time = time.perf_counter()
     
@@ -150,7 +156,7 @@ def main(radii,masses):
     max_range = np.percentile(np.abs(all_positions), 90) / scale
 
     # setting the camera to focus on main cluster of bodies
-    limit = 4
+    limit = 2
 
     print(f"Camera Limit set to: {limit} billion meters")
 
@@ -163,8 +169,12 @@ def main(radii,masses):
     ax.set_zlabel("Z (1e9 m)")
     ax.set_title(f"{N} Body Simulation using ({method})")
 
-    lines = [ax.plot([], [], [], "-", alpha=0.5)[0] for _ in range(N)]
-    dots = [ax.plot([], [], [], "o")[0] for _ in range(N)]
+    radii_plot = np.array(radii) / 5e7
+
+    lines = [ax.plot([], [], [], "-", alpha=0.3, linewidth=max(1, radii_plot[i]*5))[0] for i in range(N)]
+
+    dots = [ax.scatter([], [], [], s=(radii_plot[i]*3000), alpha=0.9) for i in range(N)]
+
 
     skip = 25
     num_frames = len(t) // skip
@@ -189,8 +199,7 @@ def main(radii,masses):
             py = reshaped[i, 1] / scale
             pz = reshaped[i, 2] / scale
 
-            dots[i].set_data([px], [py])
-            dots[i].set_3d_properties([pz])
+            dots[i]._offsets3d = ([px], [py], [pz])
 
         return lines + dots
 
@@ -207,4 +216,5 @@ def main(radii,masses):
 
 if __name__ == "__main__":
     main(radii,masses)
+
 
