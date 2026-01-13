@@ -37,38 +37,35 @@ def get_acc(state, masses, N, G=6.67430e-11, eps=1e4):
 
 
 def verlet_step(t, y, masses, tf, dt, radii):
-    
     t_list = [t]
     y_list = [y.copy()]
     N = len(masses)
 
-    # Initial acceleration (Nx3)
-    acc = get_acc(y, masses, N, G, 1e4)  # must return flat or (N,3)
+    # initial acceleration
+    acc = get_acc(y, masses, N, G, 1e4)
 
     while t < tf:
-        if t + dt > tf:
-            dt = tf - t
+        dt_local = min(dt, tf - t)   # prevents decreasing dt permanently
 
         # ---- HALF KICK ----
         for i in range(N):
-            y[6*i+3:6*i+6] += 0.5 * acc[i] * dt  # v += a*dt/2
+            y[6*i+3:6*i+6] += 0.5 * acc[i] * dt_local   # v += a*dt/2
 
         # ---- DRIFT ----
         for i in range(N):
-            y[6*i:6*i+3] += y[6*i+3:6*i+6] * dt   # x += v*dt
+            y[6*i:6*i+3] += y[6*i+3:6*i+6] * dt_local   # x += v*dt
 
-        # ---- COLLISION (FLAT) ----
-        y = collison.collision(y, masses, radii, e=0.8)
-        
+        # ---- COLLISION ----
+        y = collision.collision(y, masses, radii, e=0.8)
 
         # ---- NEW ACCEL ----
         acc = get_acc(y, masses, N, G, 1e4)
 
         # ---- SECOND HALF KICK ----
         for i in range(N):
-            y[6*i+3:6*i+6] += 0.5 * acc[i] * dt
+            y[6*i+3:6*i+6] += 0.5 * acc[i] * dt_local   # v += a*dt/2
 
-        t += dt
+        t += dt_local
         t_list.append(t)
         y_list.append(y.copy())
 
@@ -137,7 +134,7 @@ def rk45(f, t0, y0, tf, dt, tol,masses,radii):
             t += dt
             y = y5
             t_list.append(t)
-            y = collison.collision(y, masses, radii)
+            y = collision.collision(y, masses, radii)
             y_list.append(y.copy())
             
 
@@ -151,16 +148,21 @@ def rk45(f, t0, y0, tf, dt, tol,masses,radii):
 def rk4(f, t, y, tf, dt,masses,radii):
     t_list = [t]
     y_list = [y.copy()]
+
+     # do while loop until t reaches tf.
     while t < tf:
         if t + dt > tf:
             dt = tf - t
+            
+          # The K1-K4 Slopes.
         k1 = dt * f(t, y)
         k2 = dt * f(t + 0.5 * dt, y + 0.5 * k1)
         k3 = dt * f(t + 0.5 * dt, y + 0.5 * k2)
         k4 = dt * f(t + dt, y + k3)
-
+        
+        # The ODE
         y_old = y + (1 / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4)
-        y_new = collison.collision(y_old, masses, radii)
+        y_new = collision.collision(y_old, masses, radii)
         
         y = y_new
         t += dt
