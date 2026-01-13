@@ -22,7 +22,7 @@ def bodies(N, G=6.67430e-11):
 
         masses[i] = np.random.uniform(1e20, 1e25)
 
-        radii[i] = np.random.uniform(1e8,5e8)
+        radii[i] = np.random.uniform(1e6,5e6)
 
     # -----------------------------------------
     # 2. Potential energy U (double loop)
@@ -94,4 +94,5 @@ def bodies(N, G=6.67430e-11):
         state[i, 5] = velocities[i, 2]
 
     return state.ravel(), masses,radii
+
 
