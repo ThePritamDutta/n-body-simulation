@@ -12,17 +12,17 @@ import matplotlib.animation as animation
 
 
 G = 6.67430e-11  # Gravitational Constant
-N = 10
+N = 2
 # No. of objects
 
 
 # generate bodies with random positions and velocities
-
+bodies_state, masses, radii = body.bodies(N)
 bodies_state = np.array([ 1.17349296e+09,  1.27523051e+09, -2.45399244e+08, 0,
  0,  0,  3.93771941e+08, -1.09976840e+09,
  -3.24187064e+08,0,0,0])
 masses = np.array([9.57711392e+24, 2.32095806e+24])
-bodies_state, masses, radii = body.bodies(N)
+radii = np.array([1654875.13582971, 1966583.24928734])
 
 def deriv(t, bodies_state):
     # to calculate derivatives for RK4 and RK45
@@ -51,7 +51,7 @@ def main(radii,masses):
     start_time1 = time.perf_counter()
     t0 = 0.0
     tf = 3600*24*100  # time duration for simulation in seconds
-    h = 100  # step size: 6000 seconds (simulation takes large jumps)
+    h = 1000  # step size: 6000 seconds (simulation takes large jumps)
     toler = 1e-5
     
     
@@ -61,7 +61,7 @@ def main(radii,masses):
    
 
     # selection of integrator
-    method = "rk45"  # options: "verlet", "rk4", "rk45"
+    method = "verlet"  # options: "verlet", "rk4", "rk45"
     start_time = time.perf_counter()
     print(f"Running simulation using {method.upper()}...")
     k=0
@@ -72,7 +72,7 @@ def main(radii,masses):
         t, y = integrators.rk4(deriv, t0, y0, tf, h,masses,radii)
     elif method == "verlet":
         # verlet integrator from integrators.py
-        t, y,k = integrators.verlet_step(t0, y0, masses, tf, h, radii)
+        t, y = integrators.verlet_step(t0, y0, masses, tf, h, radii)
     print("Total No of collision",k)
     print("Simulation complete. Calculating energy...")
     end_time = time.perf_counter()
