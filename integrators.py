@@ -1,5 +1,5 @@
 import numpy as np
-import collision
+import collison
 
 G=6.67430e-11
 
@@ -42,42 +42,41 @@ def verlet_step(t, y, masses, tf, dt, radii):
     y_list = [y.copy()]
     N = len(masses)
 
-    # Initial Acceleration
-    acc = get_acc(y, masses,N, G,1e4)
+    # Initial acceleration (Nx3)
+    acc = get_acc(y, masses, N, G, 1e4)  # must return flat or (N,3)
 
     while t < tf:
         if t + dt > tf:
             dt = tf - t
 
-        y_matrix = y.reshape((N, 6))
-        velocities = y_matrix[:, 3:6]
+        # ---- HALF KICK ----
+        for i in range(N):
+            y[6*i+3:6*i+6] += 0.5 * acc[i] * dt  # v += a*dt/2
 
-        # 1. Half-Kick (Velocity)
-        velocities += 0.5 * acc.reshape((N, 3)) * dt
+        # ---- DRIFT ----
+        for i in range(N):
+            y[6*i:6*i+3] += y[6*i+3:6*i+6] * dt   # x += v*dt
 
-        # 2. Drift (Position)
-        y_matrix[:, :3] += velocities * dt
+        # ---- COLLISION (FLAT) ----
+        y = collison.collision(y, masses, radii, e=0.8)
+        
 
-        # 3. Collision
-        y_matrix, masses, radii = collision.collision(y_matrix, masses, radii)
+        # ---- NEW ACCEL ----
+        acc = get_acc(y, masses, N, G, 1e4)
 
-        # Update N after collision
-        N = len(masses)
-
-        # 5. Update Acceleration (using new positions)
-        acc = get_acc(y, masses,N, G,1e4)
-
-        # 6. Half-Kick (Velocity)
-        velocities += 0.5 * acc.reshape((N, 3)) * dt
+        # ---- SECOND HALF KICK ----
+        for i in range(N):
+            y[6*i+3:6*i+6] += 0.5 * acc[i] * dt
 
         t += dt
         t_list.append(t)
         y_list.append(y.copy())
 
-    return np.array(t_list), np.array(y_list),np.array(masses),np.array(radii)
+    return np.array(t_list), np.array(y_list)
 
 
-def rk45(f, t0, y0, tf, dt, tol):
+
+def rk45(f, t0, y0, tf, dt, tol,masses,radii):
     # set parameters.
     dt_min = 1e-6
     dt_max = 3e3
@@ -138,7 +137,9 @@ def rk45(f, t0, y0, tf, dt, tol):
             t += dt
             y = y5
             t_list.append(t)
+            y = collison.collision(y, masses, radii)
             y_list.append(y.copy())
+            
 
         dt = 0.9 * dt * (tol / error) ** 0.2
 
@@ -147,7 +148,7 @@ def rk45(f, t0, y0, tf, dt, tol):
     return np.array(t_list), np.array(y_list)
 
 
-def rk4(f, t, y, tf, dt):
+def rk4(f, t, y, tf, dt,masses,radii):
     t_list = [t]
     y_list = [y.copy()]
     while t < tf:
@@ -158,11 +159,14 @@ def rk4(f, t, y, tf, dt):
         k3 = dt * f(t + 0.5 * dt, y + 0.5 * k2)
         k4 = dt * f(t + dt, y + k3)
 
-        y_new = y + (1 / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4)
+        y_old = y + (1 / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4)
+        y_new = collison.collision(y_old, masses, radii)
+        
         y = y_new
         t += dt
 
         t_list.append(t)
         y_list.append(y_new.copy())
     return np.array(t_list), np.array(y_list)
+
 
