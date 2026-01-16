@@ -6,7 +6,7 @@ import integrators
 import body
 import Energy
 from mpl_toolkits.mplot3d import Axes3D
-import csv
+import h5py
 import time
 import matplotlib.animation as animation
 
@@ -115,6 +115,25 @@ def main(radii, masses):
     
     plt.close(fig)
     print("Total simulation time:", time.perf_counter() - start_time1, "seconds")
+    with h5py.File(f"{N}simulation_with_{method}.h5", "w") as f:
+        
+        f.create_dataset("time", data=t)
+        f.create_dataset("state", data=y)
+        f.create_dataset("masses", data=masses)
+        f.create_dataset("radii", data=radii)
+        
+        f.attrs["Runtime"] = runtime
+        f.attrs["Total simulation time(experimental)"] = Total_simulation_time
+        f.attrs["Max_Energy Drift"] = max_energy_drift_rate
+        f.attrs["Max_Angular Momentum drift"] = max_angular_drift_rate
+        f.attrs["Total No of Collision"] = k
+        
+
+        f.attrs["method"] = method
+        f.attrs["stepsize_h"] = h
+        f.attrs["total simulation time(theoritical)"] = tf
+        f.attrs["N"] = len(masses)
+    print("H5 file saved")
 
 if __name__ == "__main__":
     main(radii, masses)
