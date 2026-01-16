@@ -48,6 +48,14 @@ def main(radii, masses):
         t, y = integrators.rk4(deriv, t0, y0, tf, h, masses, radii)
     elif method == "verlet":
         t, y = integrators.verlet_step(t0, y0, masses, tf, h, radii)
+    print("1st Simultion done")
+    
+    delta = 1e-8
+    y_old = y0
+    
+    lambda_stability = stability.stability(y,delta,method,y_old,t0,deriv,masses,radii,tf,h)
+    print("2nd simulation done")
+    print("The stability of the system:",lambda_stability)
 
     print("Simulation complete. Calculating energy...")
     end_time = time.perf_counter()
