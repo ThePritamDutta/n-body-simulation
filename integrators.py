@@ -35,7 +35,7 @@ def get_acc(state, masses, G=6.67430e-11):
 
 
 
-def verlet_step(t, y, masses, tf, dt, radii):
+def verlet_step(t, y, masses, tf, dt, radii,contact_state,k):
     t_list = [t]
     y_list = [y.copy()]
     N = len(masses)
@@ -54,7 +54,7 @@ def verlet_step(t, y, masses, tf, dt, radii):
             y[6*i:6*i+3] += y[6*i+3:6*i+6] * dt_local
 
         # ---- COLLISION ----
-        y = collision.collision(y, masses, radii)
+        y, contact_state, k = collision.collision(y, masses, radii, contact_state, k)
 
         # ---- NEW ACCEL ----
         acc = get_acc(y, masses)
@@ -67,11 +67,11 @@ def verlet_step(t, y, masses, tf, dt, radii):
         t_list.append(t)
         y_list.append(y.copy())
 
-    return np.array(t_list), np.array(y_list)
+    return np.array(t_list), np.array(y_list),k,contact_state
 
 
 
-def rk45(f, t0, y0, tf, dt, tol,masses,radii):
+def rk45(f, t0, y0, tf, dt, tol,masses,radii,contact_state,k):
     # set parameters.
     dt_min = 1e-6
     dt_max = 3e3
@@ -132,7 +132,7 @@ def rk45(f, t0, y0, tf, dt, tol,masses,radii):
             t += dt
             y = y5
             t_list.append(t)
-            y = collision.collision(y, masses, radii)
+            y, contact_state, k = collision.collision(y, masses, radii, contact_state, k)
             y_list.append(y.copy())
             
 
@@ -140,10 +140,10 @@ def rk45(f, t0, y0, tf, dt, tol,masses,radii):
 
         dt = min(max(dt, dt_min), dt_max)
 
-    return np.array(t_list), np.array(y_list)
+    return np.array(t_list), np.array(y_list),k,contact_state
 
 
-def rk4(f, t, y, tf, dt,masses,radii):
+def rk4(f, t, y, tf, dt,masses,radii,contact_state,k):
     t_list = [t]
     y_list = [y.copy()]
 
@@ -160,11 +160,12 @@ def rk4(f, t, y, tf, dt,masses,radii):
         
         # The ODE
         y_old = y + (1 / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4)
-        y_new = collision.collision(y_old, masses, radii)
+        y_new, contact_state, k = collision.collision(y_old, masses, radii, contact_state, k)
         
         y = y_new
         t += dt
 
         t_list.append(t)
         y_list.append(y_new.copy())
-    return np.array(t_list), np.array(y_list)
+    return np.array(t_list), np.array(y_list),k ,contact_state
+
