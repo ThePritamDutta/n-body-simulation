@@ -1,9 +1,10 @@
+
 import numpy as np
-import collison
+import collision
 
 G=6.67430e-11
 
-def get_acc(state, masses, N, G=6.67430e-11, eps=1e4):
+def get_acc(state, masses, G=6.67430e-11):
     N = len(masses)
     acc = np.zeros((N, 3))
     positions = state.reshape((N, 6))[:, :3]
@@ -16,24 +17,22 @@ def get_acc(state, masses, N, G=6.67430e-11, eps=1e4):
             dy = positions[j, 1] - yi
             dz = positions[j, 2] - zi
 
-            dist2 = dx*dx + dy*dy + dz*dz + eps*eps
-            inv_dist3 = 1.0 / (dist2 * np.sqrt(dist2))
+            dist2 = dx*dx + dy*dy + dz*dz
+            if dist2 < 1e-12:   # safety guard
+                continue
 
+            inv_dist3 = 1.0 / (dist2 * np.sqrt(dist2))
             factor = G * masses[i] * masses[j] * inv_dist3
 
             fx = dx * factor
             fy = dy * factor
             fz = dz * factor
 
-            acc[i, 0] += fx / masses[i]
-            acc[i, 1] += fy / masses[i]
-            acc[i, 2] += fz / masses[i]
+            acc[i] += np.array([fx, fy, fz]) / masses[i]
+            acc[j] -= np.array([fx, fy, fz]) / masses[j]
 
-            acc[j, 0] -= fx / masses[j]
-            acc[j, 1] -= fy / masses[j]
-            acc[j, 2] -= fz / masses[j]
+    return acc
 
-    return acc.ravel()
 
 
 def verlet_step(t, y, masses, tf, dt, radii):
@@ -41,29 +40,28 @@ def verlet_step(t, y, masses, tf, dt, radii):
     y_list = [y.copy()]
     N = len(masses)
 
-    # initial acceleration
-    acc = get_acc(y, masses, N, G, 1e4)
+    acc = get_acc(y, masses)
 
     while t < tf:
-        dt_local = min(dt, tf - t)   # prevents decreasing dt permanently
+        dt_local = min(dt, tf - t)
 
         # ---- HALF KICK ----
         for i in range(N):
-            y[6*i+3:6*i+6] += 0.5 * acc[i] * dt_local   # v += a*dt/2
+            y[6*i+3:6*i+6] += 0.5 * acc[i] * dt_local
 
         # ---- DRIFT ----
         for i in range(N):
-            y[6*i:6*i+3] += y[6*i+3:6*i+6] * dt_local   # x += v*dt
+            y[6*i:6*i+3] += y[6*i+3:6*i+6] * dt_local
 
         # ---- COLLISION ----
-        y = collision.collision(y, masses, radii, e=0.8)
+        y = collision.collision(y, masses, radii)
 
         # ---- NEW ACCEL ----
-        acc = get_acc(y, masses, N, G, 1e4)
+        acc = get_acc(y, masses)
 
         # ---- SECOND HALF KICK ----
         for i in range(N):
-            y[6*i+3:6*i+6] += 0.5 * acc[i] * dt_local   # v += a*dt/2
+            y[6*i+3:6*i+6] += 0.5 * acc[i] * dt_local
 
         t += dt_local
         t_list.append(t)
@@ -170,5 +168,3 @@ def rk4(f, t, y, tf, dt,masses,radii):
         t_list.append(t)
         y_list.append(y_new.copy())
     return np.array(t_list), np.array(y_list)
-
-
