@@ -149,6 +149,7 @@ def main():
         f.create_dataset("masses", data=masses)
         f.create_dataset("radii", data=radii)
         f.create_dataset("Contact state", data=contact_state)
+        f.create_dataset("Initial Data",data=bodies_state)
         
         f.attrs["Runtime"] = runtime
         f.attrs["Total simulation time(experimental)"] = Total_simulation_time
@@ -156,7 +157,7 @@ def main():
         f.attrs["Max_Angular Momentum drift"] = max_angular_drift_rate
         f.attrs["Total No of Collision"] = k
         
-
+        
         f.attrs["method"] = method
         f.attrs["stepsize_h"] = h
         f.attrs["total simulation time(theoritical)"] = tf
