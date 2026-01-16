@@ -43,7 +43,7 @@ def main():
     toler = 1e-5
     y0 = bodies_state
 
-    method = "rk45"
+    method = "verlet"
     start_time = time.perf_counter()
     print(f"Running simulation using {method.upper()}...")
     N = len(masses)
@@ -74,6 +74,7 @@ def main():
     Total = Energy.total_energy(y, masses, N)
     E0 = Total[0]
     Energy_drift = (Total - E0) / abs(E0)
+    max_energy_deviation = np.max(Energy_drift)
 
     plt.figure(); plt.grid(); plt.plot(t, Energy_drift)
     plt.xlabel("Time"); plt.ylabel("Relative Energy Drift")
@@ -83,8 +84,9 @@ def main():
     
     print("Max energy drift rate =", max_energy_drift_rate, "J/s")
     
-
+    
     Angular_Momentum_Vector, Angular_drift = Energy.Angular_momentum(y, masses, N)
+    max_angular_drift = np.max(Angular_drift)
     plt.figure(); plt.grid(); plt.plot(t, Angular_drift)
     plt.xlabel("Time"); plt.ylabel("Angular Momentum Drift")
     plt.savefig(f"Angular_Momentum_Drift_{method}.png")
@@ -157,7 +159,7 @@ def main():
         f.attrs["Max_Angular Momentum drift"] = max_angular_drift_rate
         f.attrs["Total No of Collision"] = k
         
-        
+
         f.attrs["method"] = method
         f.attrs["stepsize_h"] = h
         f.attrs["total simulation time(theoritical)"] = tf
