@@ -1,8 +1,6 @@
-
 import numpy as np
 
-
-def total_energy(y_history, masses, N, eps=1e4):
+def total_energy(y_history, masses, N):
     G = 6.67430e-11
     T = y_history.shape[0]
 
@@ -26,24 +24,24 @@ def total_energy(y_history, masses, N, eps=1e4):
                 dx = positions[j, 0] - positions[i, 0]
                 dy = positions[j, 1] - positions[i, 1]
                 dz = positions[j, 2] - positions[i, 2]
-                dist = np.sqrt(dx*dx + dy*dy + dz*dz + eps*eps)
+                dist = np.sqrt(dx*dx + dy*dy + dz*dz)
+
+                if dist < 1e-12:   # safety guard
+                    continue
+
                 U -= G * masses[i] * masses[j] / dist
 
         energies[t] = K + U
 
-    E0 = energies[0]
-    dE_rel = (energies - E0) / np.abs(E0)
+    return energies
 
-    return dE_rel
 
-def Angular_momentum(y, masses, N):
-    states = y.reshape((-1, N, 6))
-    T = states.shape[0]
-
+def Angular_momentum(y_history, masses, N):
+    T = y_history.shape[0]
     L_mag = np.zeros(T)
 
     for t in range(T):
-        state = states[t]
+        state = y_history[t].reshape((N, 6))
         Lx = 0.0
         Ly = 0.0
         Lz = 0.0
@@ -52,19 +50,20 @@ def Angular_momentum(y, masses, N):
             rx, ry, rz = state[i, 0], state[i, 1], state[i, 2]
             vx, vy, vz = state[i, 3], state[i, 4], state[i, 5]
 
-            mx = masses[i] * vx
-            my = masses[i] * vy
-            mz = masses[i] * vz
+            px = masses[i] * vx
+            py = masses[i] * vy
+            pz = masses[i] * vz
 
-            # r × (m v)
-            Lx += ry * mz - rz * my
-            Ly += rz * mx - rx * mz
-            Lz += rx * my - ry * mx
+            Lx += ry * pz - rz * py
+            Ly += rz * px - rx * pz
+            Lz += rx * py - ry * px
 
         L_mag[t] = np.sqrt(Lx*Lx + Ly*Ly + Lz*Lz)
 
     L0 = L_mag[0]
-    delta_L_over_L = np.abs(L_mag - L0) / np.abs(L0)
+    if np.abs(L0) < 1e-20:
+        delta_L_over_L = np.zeros_like(L_mag)
+    else:
+        delta_L_over_L = np.abs(L_mag - L0) / np.abs(L0)
 
     return L_mag, delta_L_over_L
-
