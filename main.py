@@ -1,174 +1,265 @@
-from matplotlib import lines
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib
 import integrators
 import body
 import Energy
-from mpl_toolkits.mplot3d import Axes3D
 import h5py
 import time
 import matplotlib.animation as animation
 import stability
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.lines import Line2D
 
-G = 6.67430e-11  # Gravitational Constant
-N = 20
+TEST_MASS_SEGREGATION = True
+N_RUNS = 3
 
-# Place them on the X-axis, moving toward each other
-#bodies_state = np.array([
- #   -5.0e8, -10.0e8, 0.0,  0.0,  500, 0.0,
-  #   1, 1., 0.0, 0.0, 0.0, 0.0
-#])
+G = 6.67430e-11
+DEFAULT_N = 50
 
-#masses = np.array([1e25, 1e25])
-#radii = np.array([6e6, 6e6])
-
-bodies_state,masses,radii = body.bodies(N)
-
-def deriv(t, bodies_state):
-    state = bodies_state.reshape((N, 6))
-    dydt = np.zeros((N, 6))
-    dydt[:, :3] = state[:, 3:]
-    acc = integrators.get_acc(bodies_state, masses)
-    dydt[:, 3:] = acc
-    return dydt.ravel()
 
 def main():
-    
-    start_time1 = time.perf_counter()
-    
-    t0 = 0.0
-    tf = 3600*24*120
-    h = 1000   # Increased step slightly for faster solving; set to 1 for high precision
-    toler = 1e-5
-    y0 = bodies_state
 
-    method = "verlet"
-    start_time = time.perf_counter()
-    print(f"Running simulation using {method.upper()}...")
-    N = len(masses)
-    contact_state = [[False]*N for _ in range(N)]
-    k = 0
-    if method == "rk45":
-        t, y,k,contact_state = integrators.rk45(deriv, t0, y0, tf, h, toler, masses, radii,contact_state,k)
-    elif method == "rk4":
-        t, y,k,contact_state = integrators.rk4(deriv, t0, y0, tf, h, masses, radii,contact_state,k)
-    elif method == "verlet":
-        t, y,k,contact_state = integrators.verlet_step(t0, y0, masses, tf, h, radii, contact_state, k)
-    print("1st Simulation done")
-    print("The total no of collision in normal state",k)
-    
-    delta = 1e-8
-    y_old = y0
-    
-    lambda_stability = stability.stability(y,delta,method,y_old,t0,deriv,masses,radii,tf,h,contact_state,toler)
-    print("2nd simulation done")
-    print("The stability of the system:",lambda_stability)
+    for run_id in range(N_RUNS if TEST_MASS_SEGREGATION else 1):
 
-    print("Simulation complete. Calculating energy...")
-    end_time = time.perf_counter()
-    runtime = end_time - start_time
-    print(f"Runtime = {runtime:.3f} seconds")
+        print(f"\n=== RUN {run_id+1} ===")
+        np.random.seed(run_id)
 
-    # ================= ENERGY & MOMENTUM =================
-    Total = Energy.total_energy(y, masses, N)
-    E0 = Total[0]
-    Energy_drift = (Total - E0) / abs(E0)
-    max_energy_deviation = np.max(Energy_drift)
+        if TEST_MASS_SEGREGATION:
+            N = 30
+            bodies_state, masses, radii = body.bodies(
+                N, mass_mode="segregation_test"
+            )
 
-    plt.figure(); plt.grid(); plt.plot(t, Energy_drift)
-    plt.xlabel("Time"); plt.ylabel("Relative Energy Drift")
-    plt.savefig(f"energy_drift_rel_{method}.png")
-    
-    max_energy_drift_rate = max_energy_deviation / (tf - t0)
-    
-    print("Max energy drift rate =", max_energy_drift_rate, "J/s")
-    
-    
-    Angular_Momentum_Vector, Angular_drift = Energy.Angular_momentum(y, masses, N)
-    max_angular_drift = np.max(Angular_drift)
-    plt.figure(); plt.grid(); plt.plot(t, Angular_drift)
-    plt.xlabel("Time"); plt.ylabel("Angular Momentum Drift")
-    plt.savefig(f"Angular_Momentum_Drift_{method}.png")
-    
-    max_angular_drift_rate = max_angular_drift / (tf - t0)
-    
-    print(f"The maximum angular drift rate of the system using the method {method} is",max_angular_drift_rate)
+            radii = (masses / np.max(masses))**(1/3) * 5e8
+            integrators.ENABLE_COLLISIONS = False
+            print("Mass segregation test mode: collisions OFF")
+        else:
+            N = DEFAULT_N
+            bodies_state, masses, radii = body.bodies(N)
 
-    # ================= ANIMATION =================
-    print("Generating animation... please wait.")
-    scale = 1e9 
-    fig = plt.figure(figsize=(10, 10))
-    ax = fig.add_subplot(111, projection="3d")
+        def deriv(t, bodies_state):
+            state = bodies_state.reshape((N, 6))
+            dydt = np.zeros((N, 6))
+            dydt[:, :3] = state[:, 3:]
+            acc = integrators.get_acc(bodies_state, masses)
+            dydt[:, 3:] = acc
+            return dydt.ravel()
 
-    limit = 5 # Zoomed in slightly to see the 0.5e9 distance better
-    ax.set_xlim(-limit, limit); ax.set_ylim(-limit, limit); ax.set_zlim(-limit, limit)
-    ax.set_xlabel("X (1e9 m)"); ax.set_ylabel("Y (1e9 m)"); ax.set_zlabel("Z (1e9 m)")
-    ax.set_title(f"{N} Body Simulation using ({method})")
+        t0 = 0.0
+        tf = 3600 * 24 * (460 if TEST_MASS_SEGREGATION else 120)
+        h = 1000
+        toler = 1e-5
+        y0 = bodies_state
 
-    radii_plot = np.array(radii) / 1e10
-    lines = [ax.plot([], [], [], "-", alpha=0.3, linewidth=max(1, radii_plot[i] * 5))[0] for i in range(N)]
-    dots = [ax.scatter([], [], [], s=(radii_plot[i] * 3000), alpha=0.9) for i in range(N)]
+        method = "verlet" if TEST_MASS_SEGREGATION else "rk45"
+        print(f"Running simulation using {method.upper()}")
 
-    skip = 25
-    num_frames = max(1, len(t) // skip)
-    history = y[::skip].reshape(-1, N, 6)
+        contact_state = [[False]*N for _ in range(N)]
+        k = 0
 
+        start_time = time.perf_counter()
 
-    def update(frame):
-        current_index = min(frame * skip, len(y) - 1)
+        if method == "rk45":
+            t, y, k, contact_state = integrators.rk45(
+                deriv, t0, y0, tf, h, toler,
+                masses, radii, contact_state, k
+            )
+        elif method == "rk4":
+            t, y, k, contact_state = integrators.rk4(
+                deriv, t0, y0, tf, h,
+                masses, radii, contact_state, k
+            )
+        else:
+            t, y, k, contact_state = integrators.verlet_step(
+                t0, y0, masses, tf, h,
+                radii, contact_state, k
+            )
 
-        reshaped = y[current_index].reshape((N, 6))
-        
-        # Update positions and trails
-        for i in range(N):
-            px, py, pz = reshaped[i, :3] / scale
-            dots[i]._offsets3d = (np.array([px]), np.array([py]), np.array([pz]))
-            
-            # Update trails (minimal change to include history)
-            lines[i].set_data(history[:frame+1, i, 0]/scale,
-                  history[:frame+1, i, 1]/scale)
-            lines[i].set_3d_properties(history[:frame+1, i, 2]/scale)
+        runtime = time.perf_counter() - start_time
+        print("Simulation done")
 
-            
+        tail = y[int(0.8 * len(y)):]
+        r_stack = []
 
-        return lines + dots
+        for snap in tail:
+            snap = snap.reshape(N, 6)
+            pos = snap[:, :3]
+            cm = np.average(pos, axis=0, weights=masses)
+            r_stack.append(np.linalg.norm(pos - cm, axis=1))
 
-    ani = animation.FuncAnimation(fig, update, frames=num_frames, interval=30, blit=False)
+        r_avg = np.mean(r_stack, axis=0)
 
-    writer = animation.FFMpegWriter(fps=20, bitrate=1800)
-    ani.save(f"{N}_body_simulation_using_{method}.mp4", writer=writer)
-    print("Animation saved successfully.")
-    
-    plt.close(fig)
-    end_time = time.perf_counter()
-    Total_simulation_time = end_time - start_time1
-    print("Total simulation time:",Total_simulation_time, "seconds")
-    with h5py.File(f"{N}simulation_with_{method}.h5", "w") as f:
-        
-        f.create_dataset("time", data=t)
-        f.create_dataset("state", data=y)
-        f.create_dataset("masses", data=masses)
-        f.create_dataset("radii", data=radii)
-        f.create_dataset("Contact state", data=contact_state)
-        f.create_dataset("Initial Data",data=bodies_state)
-        
-        f.attrs["Runtime"] = runtime
-        f.attrs["Total simulation time(experimental)"] = Total_simulation_time
-        f.attrs["Max_Energy Drift"] = max_energy_drift_rate
-        f.attrs["Max_Angular Momentum drift"] = max_angular_drift_rate
-        f.attrs["Total No of Collision"] = k
-        
+        m_max = np.max(masses)
+        m_min = np.min(masses)
 
-        f.attrs["method"] = method
-        f.attrs["stepsize_h"] = h
-        f.attrs["total simulation time(theoritical)"] = tf
-        f.attrs["N"] = len(masses)
-        f.attrs["The stability of the system is (λ)"] = lambda_stability
-    print("H5 file saved")
-    
-    
+        print("\nTime-averaged mean radius (last 20%, CM-relative):")
+        print("Heavy  :", np.mean(r_avg[masses == m_max]))
+        print("Medium :", np.mean(
+            r_avg[(masses < m_max) & (masses > m_min)]
+        ))
+        print("Light  :", np.mean(r_avg[masses == m_min]))
+
+        r_char = np.median(r_avg)
+        evap_frac = np.sum(
+            r_avg[masses == m_min] > 3.0 * r_char
+        ) / np.sum(masses == m_min)
+
+        print("Light-body evaporation fraction:", evap_frac)
+
+        Total = Energy.total_energy(y, masses, N)
+        E0 = Total[0]
+        Energy_drift = (Total - E0) / abs(E0)
+
+        plt.figure()
+        plt.grid()
+        plt.plot(t, Energy_drift)
+        plt.xlabel("Time")
+        plt.ylabel("Relative Energy Drift")
+        plt.savefig(f"energy_drift_rel_{method}_run{run_id+1}.png")
+        plt.close()
+
+        _, Angular_drift = Energy.Angular_momentum(y, masses, N)
+
+        plt.figure()
+        plt.grid()
+        plt.plot(t, Angular_drift)
+        plt.xlabel("Time")
+        plt.ylabel("Angular Momentum Drift")
+        plt.savefig(f"Angular_Momentum_Drift_{method}_run{run_id+1}.png")
+        plt.close()
+
+        lambda_stability = stability.stability(
+            y, 1e-8, method, y0, t0,
+            deriv, masses, radii,
+            tf, h, contact_state, toler
+        )
+        print("Stability λ =", lambda_stability)
+
+        scale = 1e9
+        R_view = 6.0 * np.median(r_avg) / scale
+
+        fig = plt.figure(figsize=(10, 10))
+        ax = fig.add_subplot(111, projection="3d")
+        ax.set_xlim(-R_view, R_view)
+        ax.set_ylim(-R_view, R_view)
+        ax.set_zlim(-R_view, R_view)
+        ax.view_init(elev=20, azim=45)
+        ax.set_title("Mass Segregation and Evaporation")
+
+        radii_plot = radii / np.max(radii)
+
+        colors = []
+        for mi in masses:
+            if mi == m_max:
+                colors.append("red")
+            elif mi > m_min:
+                colors.append("orange")
+            else:
+                colors.append("blue")
+
+        dots = [
+            ax.scatter([], [], [], s=3000*radii_plot[i],
+                       c=colors[i], alpha=0.9)
+            for i in range(N)
+        ]
+
+        trails = [
+            ax.plot([], [], [], '-', lw=1, alpha=0.3,
+                    color=colors[i])[0]
+            for i in range(N)
+        ]
+
+        legend_elements = [
+            Line2D([0], [0], marker='o', color='w',
+                   markerfacecolor='red', markersize=10),
+            Line2D([0], [0], marker='o', color='w',
+                   markerfacecolor='orange', markersize=10),
+            Line2D([0], [0], marker='o', color='w',
+                   markerfacecolor='blue', markersize=10),
+        ]
+        ax.legend(handles=legend_elements)
+
+        skip = 25
+        history = y[::skip].reshape(-1, N, 6)
+        R_evap = 3.0 * np.median(r_avg)
+
+        def update(frame):
+            frame = min(frame, len(history) - 1)
+            pos = history[frame, :, :3]
+            cm = np.average(pos, axis=0, weights=masses)
+
+            for i in range(N):
+                rel_pos = (pos[i] - cm) / scale
+                dots[i]._offsets3d = ([rel_pos[0]],
+                                      [rel_pos[1]],
+                                      [rel_pos[2]])
+
+                r_now = np.linalg.norm(pos[i] - cm)
+                if r_now > R_evap:
+                    dots[i].set_alpha(0.15)
+                    dots[i].set_sizes([700])
+                else:
+                    dots[i].set_alpha(0.9)
+                    dots[i].set_sizes([3000 * radii_plot[i]])
+
+                start = max(0, frame - 10)
+                trail_segment = history[start:frame+1, i, :3].copy()
+                for j, hist_idx in enumerate(range(start, frame+1)):
+                    h_cm = np.average(
+                        history[hist_idx, :, :3],
+                        axis=0, weights=masses
+                    )
+                    trail_segment[j] -= h_cm
+
+                trails[i].set_data(trail_segment[:, 0]/scale,
+                                   trail_segment[:, 1]/scale)
+                trails[i].set_3d_properties(
+                    trail_segment[:, 2]/scale
+                )
+
+            return dots + trails
+
+        ani = animation.FuncAnimation(
+            fig, update, frames=len(history), interval=40
+        )
+        ani.save(
+            f"{N}_body_run_{run_id+1}_{method}.mp4",
+            writer=animation.FFMpegWriter(fps=20)
+        )
+        plt.close(fig)
+
+        plt.figure()
+        plt.hist(r_avg[masses == m_max], bins=10, alpha=0.7)
+        plt.hist(r_avg[(masses < m_max) & (masses > m_min)],
+                 bins=10, alpha=0.7)
+        plt.hist(r_avg[masses == m_min], bins=10, alpha=0.7)
+        plt.xlabel("CM-Relative Radius")
+        plt.ylabel("Count")
+        plt.savefig(f"radial_distribution_run{run_id+1}.png")
+        plt.close()
+
+        plt.figure()
+        plt.boxplot([
+            r_avg[masses == m_max],
+            r_avg[(masses < m_max) & (masses > m_min)],
+            r_avg[masses == m_min]
+        ])
+        plt.ylabel("CM-Relative Radius")
+        plt.savefig(f"radius_boxplot_run{run_id+1}.png")
+        plt.close()
+
+        with h5py.File(
+            f"{N}_simulation_run_{run_id+1}_{method}.h5", "w"
+        ) as f:
+            f.create_dataset("time", data=t)
+            f.create_dataset("state", data=y)
+            f.create_dataset("masses", data=masses)
+            f.create_dataset("radii", data=radii)
+            f.attrs["Runtime"] = runtime
+            f.attrs["Total No of Collision"] = k
+            f.attrs["Stability_lambda"] = lambda_stability
+            f.attrs["method"] = method
+
 
 if __name__ == "__main__":
     main()
-
