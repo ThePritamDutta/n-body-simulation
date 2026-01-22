@@ -18,11 +18,12 @@ DEFAULT_N = 50
 
 
 def main():
-
+    BASE_SEED = 12345
     for run_id in range(N_RUNS if TEST_MASS_SEGREGATION else 1):
-
+        seed = BASE_SEED + run_id
+        
         print(f"\n=== RUN {run_id+1} ===")
-        np.random.seed(run_id)
+        np.random.seed(seed)
 
         if TEST_MASS_SEGREGATION:
             N = 30
