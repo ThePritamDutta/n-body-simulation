@@ -1,4 +1,4 @@
-# 🌌 N-Body Gravitational Simulation
+#  N-Body Gravitational Simulation
 
 ## Velocity Verlet vs RK4 vs RK45 Integrators
 
@@ -8,14 +8,14 @@
 
 ------------------------------------------------------------------------
 
-## 📌 Overview
+## Overview
 
 This project presents a direct Newtonian **N-body gravitational
 simulator** developed to systematically compare:
 
--   🔵 Velocity Verlet (Symplectic)
--   🟢 Runge--Kutta 4 (RK4)
--   🟣 Runge--Kutta 45 (RK45)
+-   1. Velocity Verlet (Symplectic)
+-   2. Runge--Kutta 4 (RK4)
+-   3. Runge--Kutta 45 (RK45)
 
 The study focuses on:
 
@@ -30,12 +30,12 @@ including a **248-year Solar System simulation**.
 
 ------------------------------------------------------------------------
 
-## 🧠 Physics Background
+## Physics Background
 
 We numerically solve Newton's equations of motion:
-
+```
 m_i d²r_i/dt² = Σ G m_i m_j (r_j − r_i) / (\|r_j − r_i\|² + ε²)\^(3/2)
-
+```
 Key features:
 
 ✔ Softening parameter (ε)\
@@ -47,7 +47,7 @@ Key features:
 
 ------------------------------------------------------------------------
 
-## 🚀 Features
+## Features
 
 -   Direct O(N²) force evaluation\
 -   Symplectic and non-symplectic integrators\
@@ -59,7 +59,7 @@ Key features:
 
 ------------------------------------------------------------------------
 
-## 📊 Key Results
+## Key Results
 
 ### Energy Conservation
 
@@ -76,7 +76,7 @@ Force evaluation dominates computational cost.
 
 ------------------------------------------------------------------------
 
-## 🪐 Solar System Simulation
+## Solar System Simulation
 
 -   Simulated for 248 years\
 -   Time step: 8000 seconds\
@@ -84,7 +84,7 @@ Force evaluation dominates computational cost.
 
 ------------------------------------------------------------------------
 
-## 🛠 Installation
+## Installation
 
 ``` bash
 git clone https://github.com/Akshat-Chakarverty/n-body-simulation
@@ -92,17 +92,11 @@ cd n-body-simulation
 pip install -r requirements.txt
 ```
 
-------------------------------------------------------------------------
 
-## ▶ Running Example
-
-``` python
-python main.py --N 100 --integrator verlet --dt 1000 --T 100
-```
 
 ------------------------------------------------------------------------
 
-## 📦 Dependencies
+## Dependencies
 
 -   numpy\
 -   matplotlib\
@@ -112,19 +106,21 @@ python main.py --N 100 --integrator verlet --dt 1000 --T 100
 
 ------------------------------------------------------------------------
 
-## 📈 Energy Drift Formula
+## Energy Drift Formula
 
 Relative energy drift:
-
+```
 ΔE = \|E(T) − E(0)\| / \|E(0)\|
+```
 
 Drift rate:
+```
 
 γ = (1/T) \|E(T) − E(0)\| / \|E(0)\|
-
+```
 ------------------------------------------------------------------------
 
-## 🔮 Future Work
+## Future Work
 
 -   Barnes--Hut Tree Code (O(N log N))\
 -   MPI/OpenMP parallelization\
@@ -134,7 +130,7 @@ Drift rate:
 
 ------------------------------------------------------------------------
 
-## 📜 Citation
+## Citation
 
 Dutta, P. & Chakarverty, A. (2025)\
 N-Body Gravitational Simulations Using RK and Verlet Integrators\
@@ -142,7 +138,7 @@ Indian Association for the Cultivation of Science
 
 ------------------------------------------------------------------------
 
-## 🌟 Final Note
+## Final Note
 
 Higher local accuracy does not guarantee long-term physical fidelity.\
 Symplectic structure preservation is essential for gravitational
